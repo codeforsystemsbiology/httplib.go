@@ -11,8 +11,6 @@ import (
     "strings"
 )
 
-var defaultUserAgent = "httplib.go"
-
 var debugprint = false
 
 type Client struct {
@@ -90,7 +88,6 @@ func Get(url string) *HttpRequestBuilder {
     var req http.Request
     req.Method = "GET"
     req.Header = http.Header{}
-    req.UserAgent = defaultUserAgent
     return &HttpRequestBuilder{url, &req, nil, map[string]string{}}
 }
 
@@ -98,7 +95,6 @@ func Post(url string) *HttpRequestBuilder {
     var req http.Request
     req.Method = "POST"
     req.Header = http.Header{}
-    req.UserAgent = defaultUserAgent
     return &HttpRequestBuilder{url, &req, nil, map[string]string{}}
 }
 
@@ -106,7 +102,6 @@ func Put(url string) *HttpRequestBuilder {
     var req http.Request
     req.Method = "PUT"
     req.Header = http.Header{}
-    req.UserAgent = defaultUserAgent
     return &HttpRequestBuilder{url, &req, nil, map[string]string{}}
 }
 
@@ -114,7 +109,6 @@ func Delete(url string) *HttpRequestBuilder {
     var req http.Request
     req.Method = "DELETE"
     req.Header = http.Header{}
-    req.UserAgent = defaultUserAgent
     return &HttpRequestBuilder{url, &req, nil, map[string]string{}}
 }
 
