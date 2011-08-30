@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"http"
+	"url"
 	"io"
 	"io/ioutil"
 	"net"
@@ -15,7 +16,7 @@ var debugprint = false
 
 type Client struct {
 	conn    *http.ClientConn
-	lastURL *http.URL
+	lastURL *url.URL
 }
 
 type nopCloser struct {
@@ -30,7 +31,7 @@ func getNopCloser(buf *bytes.Buffer) nopCloser {
 
 func hasPort(s string) bool { return strings.LastIndex(s, ":") > strings.LastIndex(s, "]") }
 
-func newConn(url *http.URL) (*http.ClientConn, os.Error) {
+func newConn(url *url.URL) (*http.ClientConn, os.Error) {
 	addr := url.Host
 	if !hasPort(addr) {
 		addr += ":" + url.Scheme
@@ -60,7 +61,7 @@ func newConn(url *http.URL) (*http.ClientConn, os.Error) {
 }
 
 func getResponse(rawUrl string, req *http.Request) (*http.ClientConn, *http.Response, os.Error) {
-	url, err := http.ParseURL(rawUrl)
+	url, err := url.Parse(rawUrl)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -84,54 +85,44 @@ func getResponse(rawUrl string, req *http.Request) (*http.ClientConn, *http.Resp
 	return conn, resp, nil
 }
 
-func Get(url string) *HttpRequestBuilder {
+func Get(targeturl string) *HttpRequestBuilder {
 	var req http.Request
 	req.Method = "GET"
 	req.Header = http.Header{}
-	return &HttpRequestBuilder{url, &req, nil, map[string]string{}}
+	return &HttpRequestBuilder{url: targeturl, req: &req, params: &url.Values{}}
 }
 
-func Post(url string) *HttpRequestBuilder {
+func Post(targeturl string) *HttpRequestBuilder {
 	var req http.Request
 	req.Method = "POST"
 	req.Header = http.Header{}
-	return &HttpRequestBuilder{url, &req, nil, map[string]string{}}
+	return &HttpRequestBuilder{url: targeturl, req: &req, params: &url.Values{}}
 }
 
-func Put(url string) *HttpRequestBuilder {
+func Put(targeturl string) *HttpRequestBuilder {
 	var req http.Request
 	req.Method = "PUT"
 	req.Header = http.Header{}
-	return &HttpRequestBuilder{url, &req, nil, map[string]string{}}
+	return &HttpRequestBuilder{url: targeturl, req: &req, params: &url.Values{}}
 }
 
-func Delete(url string) *HttpRequestBuilder {
+func Delete(targeturl string) *HttpRequestBuilder {
 	var req http.Request
 	req.Method = "DELETE"
 	req.Header = http.Header{}
-	return &HttpRequestBuilder{url, &req, nil, map[string]string{}}
+	return &HttpRequestBuilder{url: targeturl, req: &req, params: &url.Values{}}
 }
 
 type HttpRequestBuilder struct {
 	url        string
 	req        *http.Request
 	clientConn *http.ClientConn
-	params     map[string]string
+	params     *url.Values
 }
 
 func (b *HttpRequestBuilder) getResponse() (*http.Response, os.Error) {
-	var paramBody string
-	if b.params != nil && len(b.params) > 0 {
-		var buf bytes.Buffer
-		for k, v := range b.params {
-			buf.WriteString(http.URLEscape(k))
-			buf.WriteByte('=')
-			buf.WriteString(http.URLEscape(v))
-			buf.WriteByte('&')
-		}
-		paramBody = buf.String()
-		paramBody = paramBody[0 : len(paramBody)-1]
-	}
+	paramBody := b.params.Encode()
+	//paramBody = paramBody[0 : len(paramBody)-1]
 	if b.req.Method == "GET" && len(paramBody) > 0 {
 		if strings.Index(b.url, "?") != -1 {
 			b.url += "&" + paramBody
@@ -155,7 +146,7 @@ func (b *HttpRequestBuilder) Header(key, value string) *HttpRequestBuilder {
 }
 
 func (b *HttpRequestBuilder) Param(key, value string) *HttpRequestBuilder {
-	b.params[key] = value
+	b.params.Set(key, value)
 	return b
 }
 
