@@ -3,8 +3,8 @@ package httplib
 import (
 	"bytes"
 	"crypto/tls"
-	"http"
-	"url"
+	"net/http"
+	"net/url"
 	"io"
 	"io/ioutil"
 	"net"
