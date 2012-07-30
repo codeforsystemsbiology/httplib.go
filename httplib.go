@@ -3,11 +3,12 @@ package httplib
 import (
 	"bytes"
 	"crypto/tls"
-	"net/http"
-	"net/url"
 	"io"
 	"io/ioutil"
 	"net"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -15,7 +16,7 @@ import (
 var debugprint = false
 
 type Client struct {
-	conn    *http.ClientConn
+	conn    *httputil.ClientConn
 	lastURL *url.URL
 }
 
@@ -23,7 +24,7 @@ type nopCloser struct {
 	io.Reader
 }
 
-func (nopCloser) Close() os.Error { return nil }
+func (nopCloser) Close() error { return nil }
 
 func getNopCloser(buf *bytes.Buffer) nopCloser {
 	return nopCloser{buf}
@@ -31,13 +32,13 @@ func getNopCloser(buf *bytes.Buffer) nopCloser {
 
 func hasPort(s string) bool { return strings.LastIndex(s, ":") > strings.LastIndex(s, "]") }
 
-func newConn(url *url.URL) (*http.ClientConn, os.Error) {
+func newConn(url *url.URL) (*httputil.ClientConn, error) {
 	addr := url.Host
 	if !hasPort(addr) {
 		addr += ":" + url.Scheme
 	}
 	var conn net.Conn
-	var err os.Error
+	var err error
 	if url.Scheme == "http" {
 		conn, err = net.Dial("tcp", addr)
 		if err != nil {
@@ -57,17 +58,17 @@ func newConn(url *url.URL) (*http.ClientConn, os.Error) {
 		}
 	}
 
-	return http.NewClientConn(conn, nil), nil
+	return httputil.NewClientConn(conn, nil), nil
 }
 
-func getResponse(rawUrl string, req *http.Request) (*http.ClientConn, *http.Response, os.Error) {
+func getResponse(rawUrl string, req *http.Request) (*httputil.ClientConn, *http.Response, error) {
 	url, err := url.Parse(rawUrl)
 	if err != nil {
 		return nil, nil, err
 	}
 	req.URL = url
 	if debugprint {
-		dump, _ := http.DumpRequest(req, true)
+		dump, _ := httputil.DumpRequest(req, true)
 		print(string(dump))
 	}
 
@@ -78,7 +79,7 @@ func getResponse(rawUrl string, req *http.Request) (*http.ClientConn, *http.Resp
 
 	resp, err := conn.Do(req)
 	if err != nil {
-		if err != http.ErrPersistEOF {
+		if err != httputil.ErrPersistEOF {
 			return nil, nil, err
 		}
 	}
@@ -116,11 +117,11 @@ func Delete(targeturl string) *HttpRequestBuilder {
 type HttpRequestBuilder struct {
 	url        string
 	req        *http.Request
-	clientConn *http.ClientConn
+	clientConn *httputil.ClientConn
 	params     *url.Values
 }
 
-func (b *HttpRequestBuilder) getResponse() (*http.Response, os.Error) {
+func (b *HttpRequestBuilder) getResponse() (*http.Response, error) {
 	paramBody := b.params.Encode()
 	//paramBody = paramBody[0 : len(paramBody)-1]
 	if b.req.Method == "GET" && len(paramBody) > 0 {
@@ -162,7 +163,7 @@ func (b *HttpRequestBuilder) Body(data interface{}) *HttpRequestBuilder {
 	return b
 }
 
-func (b *HttpRequestBuilder) AsString() (string, os.Error) {
+func (b *HttpRequestBuilder) AsString() (string, error) {
 	resp, err := b.getResponse()
 	if err != nil {
 		return "", err
@@ -178,7 +179,7 @@ func (b *HttpRequestBuilder) AsString() (string, os.Error) {
 	return string(data), nil
 }
 
-func (b *HttpRequestBuilder) AsBytes() ([]byte, os.Error) {
+func (b *HttpRequestBuilder) AsBytes() ([]byte, error) {
 	resp, err := b.getResponse()
 	if err != nil {
 		return nil, err
@@ -194,7 +195,7 @@ func (b *HttpRequestBuilder) AsBytes() ([]byte, os.Error) {
 	return data, nil
 }
 
-func (b *HttpRequestBuilder) AsFile(filename string) os.Error {
+func (b *HttpRequestBuilder) AsFile(filename string) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -215,7 +216,7 @@ func (b *HttpRequestBuilder) AsFile(filename string) os.Error {
 	return nil
 }
 
-func (b *HttpRequestBuilder) AsResponse() (*http.Response, os.Error) {
+func (b *HttpRequestBuilder) AsResponse() (*http.Response, error) {
 	return b.getResponse()
 }
 
